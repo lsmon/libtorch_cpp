@@ -17,6 +17,9 @@ def download_and_install(root_path, version='2.5.0'):
         print(f"Unsupported OS: {os_type}")
         sys.exit(1)
 
+    if not os.path.exists(root_path):
+        os.makedirs(root_path)
+    
     tmp_zip = os.path.join(root_path, f"libtorch-{version}.zip")
 
     print(f"Downloading LibTorch {version} from {url}...")
