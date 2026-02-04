@@ -2,6 +2,7 @@
 #include <torch/script.h>
 #include <iostream>
 #include <iomanip>
+#include <config.hpp>
 
 void print_script_module(const torch::jit::script::Module& module, size_t spaces) {
     for (const auto& sub_module : module.named_children()) {
@@ -74,67 +75,6 @@ void autogradExTwo(torch::Tensor x, torch::Tensor y) {
     pred = linear->forward(x);
     loss = criterion(pred, y);
     std::cout << "Loss after 1 optimization step: " << loss.item<double>() << "\n\n";
-}
-
-
-void loadPretrainedModel() {
-    // =============================================================== //
-    //                        PRETRAINED MODEL                         //
-    // =============================================================== //
-
-    std::cout << "---- PRETRAINED MODEL ----\n";
-    // Loading a pretrained model using the C++ API is done
-    // in the following way:
-    // In Python:
-    // (1) Create the (pretrained) pytorch model.
-    // (2) Convert the pytorch model to a torch.jit.ScriptModule (via tracing or by using annotations)
-    // (3) Serialize the scriptmodule to a file.
-    // In C++:
-    // (4) Load the scriptmodule form the file using torch::jit::load()
-    // See https://pytorch.org/tutorials/advanced/cpp_export.html for more infos.
-
-    // Path to serialized ScriptModule of pretrained resnet18 model,
-    // created in Python.
-    // You can use the provided Python-script "create_resnet18_scriptmodule.py" in
-    // tutorials/basics/pytorch-basics/model to create the necessary file.
-    const std::string pretrained_model_path = "../../../../tutorials/basics/pytorch_basics/model/"
-        "resnet18_scriptmodule.pt";
-
-    torch::jit::script::Module resnet;
-
-    try {
-        resnet = torch::jit::load(pretrained_model_path);
-    }
-    catch (const torch::Error& error) {
-        std::cerr << "Could not load scriptmodule from file " << pretrained_model_path << ".\n"
-            << "You can create this file using the provided Python script 'create_resnet18_scriptmodule.py' "
-            "in tutorials/basics/pytorch-basics/model/.\n";
-        return -1;
-    }
-
-    std::cout << "Resnet18 model:\n";
-
-    print_script_module(resnet, 2);
-
-    std::cout << "\n";
-
-    const auto fc_weight = resnet.attr("fc").toModule().attr("weight").toTensor();
-
-    auto in_features = fc_weight.size(1);
-    auto out_features = fc_weight.size(0);
-
-    std::cout << "Fully connected layer: in_features=" << in_features << ", out_features=" << out_features << "\n";
-
-    // Input sample
-    auto sample_input = torch::randn({1, 3, 224, 224});
-    std::vector<torch::jit::IValue> inputs{sample_input};
-
-    // Forward pass
-    std::cout << "Input size: ";
-    std::cout << sample_input.sizes() << "\n";
-    auto output = resnet.forward(inputs).toTensor();
-    std::cout << "Output size: ";
-    std::cout << output.sizes() << "\n\n";
 }
 
 void createTensorsFrommData() {
@@ -274,6 +214,65 @@ void mnistAsInputPipeline() {
     // }
 }
 
+void loadPretrainedModel() {
+    // =============================================================== //
+    //                        PRETRAINED MODEL                         //
+    // =============================================================== //
+
+    std::cout << "---- PRETRAINED MODEL ----\n";
+    // Loading a pretrained model using the C++ API is done
+    // in the following way:
+    // In Python:
+    // (1) Create the (pretrained) pytorch model.
+    // (2) Convert the pytorch model to a torch.jit.ScriptModule (via tracing or by using annotations)
+    // (3) Serialize the scriptmodule to a file.
+    // In C++:
+    // (4) Load the scriptmodule form the file using torch::jit::load()
+    // See https://pytorch.org/tutorials/advanced/cpp_export.html for more infos.
+
+    // Path to serialized ScriptModule of pretrained resnet18 model,
+    // created in Python.
+    // You can use the provided Python-script "create_resnet18_scriptmodule.py" in
+    // tutorials/basics/pytorch-basics/model to create the necessary file.
+    const std::string pretrained_model_path = MODEL_RESNET18;
+
+    torch::jit::script::Module resnet;
+
+    try {
+        resnet = torch::jit::load(pretrained_model_path);
+    }
+    catch (const torch::Error& error) {
+        std::cerr << "Could not load scriptmodule from file " << pretrained_model_path << ".\n"
+            << "You can create this file using the provided Python script 'create_resnet18.py' "
+            << "in " << SCRIPTS_MODLES_PATH << "/.\n";
+        return;
+    }
+
+    std::cout << "Resnet18 model:\n";
+
+    print_script_module(resnet, 2);
+
+    std::cout << "\n";
+
+    const auto fc_weight = resnet.attr("fc").toModule().attr("weight").toTensor();
+
+    auto in_features = fc_weight.size(1);
+    auto out_features = fc_weight.size(0);
+
+    std::cout << "Fully connected layer: in_features=" << in_features << ", out_features=" << out_features << "\n";
+
+    // Input sample
+    auto sample_input = torch::randn({1, 3, 224, 224});
+    std::vector<torch::jit::IValue> inputs{sample_input};
+
+    // Forward pass
+    std::cout << "Input size: ";
+    std::cout << sample_input.sizes() << "\n";
+    auto output = resnet.forward(inputs).toTensor();
+    std::cout << "Output size: ";
+    std::cout << output.sizes() << "\n\n";
+}
+
 int main() {
     std::cout << "PyTorch Basics\n\n";
 
@@ -303,7 +302,7 @@ int main() {
     // See Deep Residual Network tutorial files cifar10.h and cifar10.cpp
     // for an example of a custom dataset implementation.
 
-    loadPretrainedModels();
+    loadPretrainedModel();
 
     // =============================================================== //
     //                      SAVE AND LOAD A MODEL                      //
@@ -318,15 +317,16 @@ int main() {
     };
 
     // Path to the model output file (all folders must exist!).
-    const std::string model_save_path = "output/model.pt";
+    
+    const std::string model_save_path = MODEL_SAVE_PATH;
 
     // Save the model
     torch::save(model, model_save_path);
 
-    std::cout << "Saved model:\n" << model << "\n";
+    std::cout << "Saved model:\n" << model << std::endl;
 
     // Load the model
     torch::load(model, model_save_path);
 
-    std::cout << "Loaded model:\n" << model;
+    std::cout << "Loaded model:\n" << model << std::endl;
 }

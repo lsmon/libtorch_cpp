@@ -4,4 +4,3 @@ libtorch/
 data/
 model/
 scripts/models/.venv
-scripts/models/create_resnet18_scriptmodule.py
