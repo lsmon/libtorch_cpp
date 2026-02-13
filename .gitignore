@@ -4,3 +4,9 @@ libtorch/
 data/
 model/
 scripts/models/.venv
+cpp-driver/
+lib/
+include/config.hpp
+include/cassandra.h
+include/dse.h
+models/

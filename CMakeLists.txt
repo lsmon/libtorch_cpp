@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.18)
-project(minimal_libtorch LANGUAGES CXX)
+project(minimal_libtorch LANGUAGES CXX VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-configure_file(${CMAKE_SOURCE_DIR}/include/config.h.in ${CMAKE_SOURCE_DIR}/include/config.hpp)
-
+set(OCID_DSET_PATH "${CMAKE_SOURCE_DIR}/data/ocid")
+set(CSV_FILES   ${OCID_DSET_PATH}/310.csv
+                ${OCID_DSET_PATH}/312.csv
+                ${OCID_DSET_PATH}/313.csv
+                ${OCID_DSET_PATH}/314.csv)
 
 include(${CMAKE_SOURCE_DIR}/cmake/depencency_install.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/fetch_mnist.cmake)
@@ -14,10 +17,18 @@ dependency_install("libtorch" "${CMAKE_SOURCE_DIR}/libtorch" "libtorch-install.p
 # Silences the Kineto warning
 set(kineto_LIBRARY "")
 set(KINETO_LIBRARY "")
-find_package(Torch REQUIRED PATHS "${CMAKE_SOURCE_DIR}/libtorch")
 
-set(TORCH_ROOT "${CMAKE_SOURCE_DIR}/libtorch")
-set(TORCH_LIBTORCH "${TORCH_ROOT}/lib.torch")
+cmake_policy(SET CMP0144 NEW)
+set(Torch_ROOT "${CMAKE_SOURCE_DIR}/libtorch")
+message(STATUS "System Architecre: " ${CMAKE_SYSTEM_PROCESSOR})
+if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+    set(TORCH_LIBTORCH "${Torch_ROOT}/lib")
+elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+    set(TORCH_LIBTORCH "${Torch_ROOT}/lib.torch")
+    find_package(Torch REQUIRED PATHS "${CMAKE_SOURCE_DIR}/libtorch")
+endif()
+
+find_package(Torch REQUIRED PATHS "${CMAKE_SOURCE_DIR}/libtorch")
 
 if (Torch_FOUND)
     set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/libtorch")
@@ -33,27 +44,77 @@ if (Torch_FOUND)
     link_directories("${CMAKE_PREFIX_PATH}/torch.libs")
 endif()
 
+set(CASSANDRA_V "2.17.1")
+install("Cassandra" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/cassandra-driver.py" ${CASSANDRA_V})
+set(CASSANDRA_INC ${CMAKE_SOURCE_DIR}/include/cassandra.h)
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    set(CASSANDRA_LIB
+        ${CMAKE_SOURCE_DIR}/lib/libcassandra.dylib
+        ${CMAKE_SOURCE_DIR}/lib/libcassandra.2.dylib
+        ${CMAKE_SOURCE_DIR}/lib/libcassandra.${CASSANDRA_V}.dylib)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    set(CASSANDRA_LIB
+        ${CMAKE_SOURCE_DIR}/lib/libcassandra.so
+        ${CMAKE_SOURCE_DIR}/lib/libcassandra.so.2
+        ${CMAKE_SOURCE_DIR}/lib/libcassandra.so.${CASSANDRA_V})
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+
+else()
+
+endif()
+
+find_library(CASSANDRA_LIB_PATH
+    NAMES cassandra
+    PATHS "${CMAKE_SOURCE_DIR}/lib"
+    NO_DEFAULT_PATH
+)
+
+if(NOT CASSANDRA_LIB_PATH)
+    message(FATAL_ERROR "Cassandra library not found in ${CMAKE_SOURCE_DIR}/lib")
+endif()
+
+# --- FIX: Detect if Cassandra is static or shared to avoid linker errors ---
+if(CASSANDRA_LIB_PATH MATCHES "${CMAKE_STATIC_LIBRARY_SUFFIX}$")
+    set(CASSANDRA_LIB_TYPE STATIC)
+else()
+    set(CASSANDRA_LIB_TYPE SHARED)
+endif()
+
+
+configure_file(${CMAKE_SOURCE_DIR}/include/config.h.in ${CMAKE_SOURCE_DIR}/include/config.hpp)
+
+add_library(cassandra_lib ${CASSANDRA_LIB_TYPE} IMPORTED)
+set_target_properties(cassandra_lib PROPERTIES 
+    IMPORTED_LOCATION "${CASSANDRA_LIB_PATH}"
+    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include"
+)
+
 add_executable(minimal ${CMAKE_SOURCE_DIR}/src/main.cpp)
 target_link_directories(minimal PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(minimal "${TORCH_LIBRARIES}")
 target_include_directories(minimal PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
-set_property(TARGET minimal PROPERTY CXX_STANDARD 17)
 
 add_executable(pca ${CMAKE_SOURCE_DIR}/src/unsupervised/pca.cpp)
 target_link_directories(pca PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(pca "${TORCH_LIBRARIES}")
 target_include_directories(pca PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
-set_property(TARGET pca PROPERTY CXX_STANDARD 17)
 
 add_executable(pca_k-means ${CMAKE_SOURCE_DIR}/src/unsupervised/pca_k-means.cpp)
 target_link_directories(pca_k-means PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(pca_k-means "${TORCH_LIBRARIES}")
 target_include_directories(pca_k-means PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
-set_property(TARGET pca_k-means PROPERTY CXX_STANDARD 17)
 
 fetch_mnist("${CMAKE_SOURCE_DIR}/data")
 add_executable(No01_libtorch_basics ${CMAKE_SOURCE_DIR}/src/basics/libtorch.cpp)
 target_link_directories(No01_libtorch_basics PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(No01_libtorch_basics "${TORCH_LIBRARIES}")
 target_include_directories(No01_libtorch_basics PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
-set_property(TARGET No01_libtorch_basics PROPERTY CXX_STANDARD 17)
+
+add_library(cass_con ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
+                     ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
+target_include_directories(cass_con PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
+target_link_libraries(cass_con ${CASSANDRA_LIB})
+
+add_executable(db_test ${CMAKE_SOURCE_DIR}/src/db/db_test.cpp)
+target_link_libraries(db_test cass_con)

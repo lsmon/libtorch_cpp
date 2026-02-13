@@ -13,3 +13,5 @@
 
 // You can even pass paths
 #define LIBTORCH_PATH "@LIBTORCH_ROOT@"
+
+#define OCID_DSET_PATH "@CMAKE_SOURCE_DIR@/data/ocid"

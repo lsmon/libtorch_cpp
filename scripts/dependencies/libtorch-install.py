@@ -35,7 +35,7 @@ def download_and_install(root_path, version='2.5.0'):
     
     print("Extracting files...")
     zipfile.ZipFile(tmp_zip, 'r').extractall(root_path)
-    print(f"LibTorch {version} installed succesfully to {root_path}/libtorch")
+    print(f"LibTorch {version} installed succesfully to {root_path}")
     os.remove(tmp_zip)
 
     
