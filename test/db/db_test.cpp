@@ -5,7 +5,7 @@ int main() {
         connector db;
         
         // 1. Connect
-        db.connect("127.0.0.1");
+        db.connect("172.18.0.2");
         std::cout << "Connected!" << std::endl;
 
         // 2. Setup Environment

@@ -13,7 +13,12 @@ set(CSV_FILES   ${OCID_DSET_PATH}/310.csv
 include(${CMAKE_SOURCE_DIR}/cmake/depencency_install.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/fetch_mnist.cmake)
 
-dependency_install("libtorch" "${CMAKE_SOURCE_DIR}/libtorch" "libtorch-install.py" "2.5.0")
+set(CASSANDRA_V "2.17.1")
+install("Cassandra" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/cassandra-driver.py" ${CASSANDRA_V})
+
+set(LIBTORCH_V "2.5.0")
+dependency_install("libtorch" "${CMAKE_SOURCE_DIR}/libtorch" "libtorch-install.py" "${LIBTORCH_V}")
+
 # Silences the Kineto warning
 set(kineto_LIBRARY "")
 set(KINETO_LIBRARY "")
@@ -23,12 +28,11 @@ set(Torch_ROOT "${CMAKE_SOURCE_DIR}/libtorch")
 message(STATUS "System Architecre: " ${CMAKE_SYSTEM_PROCESSOR})
 if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
     set(TORCH_LIBTORCH "${Torch_ROOT}/lib")
+    find_package(Torch REQUIRED PATHS "${CMAKE_SOURCE_DIR}/libtorch")
 elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
     set(TORCH_LIBTORCH "${Torch_ROOT}/lib.torch")
     find_package(Torch REQUIRED PATHS "${CMAKE_SOURCE_DIR}/libtorch")
 endif()
-
-find_package(Torch REQUIRED PATHS "${CMAKE_SOURCE_DIR}/libtorch")
 
 if (Torch_FOUND)
     set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/libtorch")
@@ -44,8 +48,7 @@ if (Torch_FOUND)
     link_directories("${CMAKE_PREFIX_PATH}/torch.libs")
 endif()
 
-set(CASSANDRA_V "2.17.1")
-install("Cassandra" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/cassandra-driver.py" ${CASSANDRA_V})
+
 set(CASSANDRA_INC ${CMAKE_SOURCE_DIR}/include/cassandra.h)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
@@ -116,5 +119,17 @@ add_library(cass_con ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
 target_include_directories(cass_con PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
 target_link_libraries(cass_con ${CASSANDRA_LIB})
 
-add_executable(db_test ${CMAKE_SOURCE_DIR}/src/db/db_test.cpp)
+add_executable(db_test ${CMAKE_SOURCE_DIR}/test/db/db_test.cpp)
 target_link_libraries(db_test cass_con)
+
+add_executable(insert_test  ${CMAKE_SOURCE_DIR}/test/db/access/insert_test.cpp
+                            ${CMAKE_SOURCE_DIR}/include/db/access/measurement.hpp
+                            ${CMAKE_SOURCE_DIR}/src/db/access/measurement.cpp)
+target_include_directories(insert_test PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
+target_link_libraries(insert_test cass_con)
+
+add_executable(insert_csv   ${CMAKE_SOURCE_DIR}/test/db/access/insert_csv.cpp
+                            ${CMAKE_SOURCE_DIR}/include/db/access/raw_measurement.hpp
+                            ${CMAKE_SOURCE_DIR}/src/db/access/raw_measurement.cpp)
+target_include_directories(insert_csv PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
+target_link_libraries(insert_csv cass_con)
