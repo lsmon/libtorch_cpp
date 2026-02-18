@@ -1,30 +1,69 @@
 #include "db/access/measurement.hpp"
+#include "db/connector.hpp"
 
-measurement_manager::insert(const measurement& m) {
-    std::string cql = "INSERT INTO cell_measurements (mcc, mnc, lac, cellid, measured_at, lat, lon, apiKey, act, devn, signal, ta, tac, pci, sid, nid, bid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+void measurement_manager::insert(const measurement& m) {
+    if (m.key.mcc == 0 || m.key.mnc == 0 || m.key.lac == 0 || m.key.cellid == 0 || m.key.measured_at == 0) {
+        throw std::invalid_argument("Missing required fields for measurement insertion");
+    }
+
+
+    std::string cql = "INSERT INTO cell_measurements ( ";
+    cql += "mcc, mnc, lac, cellid, measured_at, ";
+    if (m.core_data.lat != 0) cql += "lat, ";
+    if (m.core_data.lon != 0) cql += "lon, ";
+    if (m.core_data.rating != 0) cql += "rating, ";
+    if (m.core_data.range != 0) cql += "range, ";
+    if (!m.apikey.empty()) cql += "apikey, ";
+    if (!m.radio.empty()) cql += "radio, ";
+    if (!m.devn.empty()) cql += "devn, ";
+    if (m.stats_data.unit != 0) cql += "unit, ";
+    if (m.stats_data.samples != 0) cql += "samples, ";
+    if (m.stats_data.changeable != 0) cql += "changeable, ";
+    if (m.stats_data.avg_signal != 0) cql += "avg_signal, ";
+    if (m.stats_data.created_at != 0) cql += "created_at, ";
+    if (m.stats_data.updated_at != 0) cql += "updated_at, ";
+    if (m.movement_data.signal != 0) cql += "signal, ";
+    if (m.movement_data.speed != 0) cql += "speed, ";
+    if (m.movement_data.direction != 0) cql += "direction, ";
+    if (m.tech.ta != 0) cql += "ta, ";
+    if (m.tech.tac != 0) cql += "tac, ";
+    if (m.tech.pci != 0) cql += "pci, ";
+    if (m.tech.sid != 0) cql += "sid, ";
+    if (m.tech.nid != 0) cql += "nid, ";
+    if (m.tech.bid != 0) cql += "bid, ";
+    cql.pop_back(); // Remove last comma
     
-    const CassPrepared* prepared = db.prepare(cql);
+    const CassPrepared* prepared = db.prepare_query(cql);
     CassStatement* statement = cass_prepared_bind(prepared);
 
-    cass_statement_bind_int32(statement, 0, m.mcc);
-    cass_statement_bind_int32(statement, 1, m.mnc);
-    cass_statement_bind_int32(statement, 2, m.lac);
-    cass_statement_bind_int32(statement, 3, m.cellid);
-    cass_statement_bind_int64(statement, 4, m.measured_at);
-    cass_statement_bind_double(statement, 5, m.lat);
-    cass_statement_bind_double(statement, 6, m.lon);
-    cass_statement_bind_string(statement, 7, m.apiKey.c_str());
-    cass_statement_bind_string(statement, 8, m.act.c_str());
-    cass_statement_bind_string(statement, 9, m.devn.c_str());
-    cass_statement_bind_int32(statement, 10, m.signal);
-    
-    // Example of tech-specific binding
-    cass_statement_bind_int32(statement, 11, m.ta);
-    cass_statement_bind_int32(statement, 12, m.tac);
-    cass_statement_bind_int32(statement, 13, m.pci);
-    cass_statement_bind_int32(statement, 14, m.sid);
-    cass_statement_bind_int32(statement, 15, m.nid);
-    cass_statement_bind_int32(statement, 16, m.bid);
+    cass_statement_bind_int32_by_name(statement, columns.mcc, m.key.mcc);
+    cass_statement_bind_int32_by_name(statement, columns.mnc, m.key.mnc);
+    cass_statement_bind_int32_by_name(statement, columns.lac, m.key.lac);
+    cass_statement_bind_int32_by_name(statement, columns.cellid, m.key.cellid);
+    cass_statement_bind_int64_by_name(statement, columns.measured_at, m.key.measured_at);
+
+    if (m.core_data.lat != 0) cass_statement_bind_double_by_name(statement, columns.lat, m.core_data.lat);
+    if (m.core_data.lon != 0) cass_statement_bind_double_by_name(statement, columns.lon, m.core_data.lon);
+    if (m.core_data.rating != 0) cass_statement_bind_double_by_name(statement, columns.rating, m.core_data.rating);
+    if (m.core_data.range != 0) cass_statement_bind_int32_by_name(statement, columns.range, m.core_data.range);
+    if (!m.apikey.empty())  cass_statement_bind_string_by_name(statement, columns.apikey, m.apikey.c_str());
+    if (!m.radio.empty()) cass_statement_bind_string_by_name(statement, columns.radio, m.radio.c_str());
+    if (!m.devn.empty()) cass_statement_bind_string_by_name(statement, columns.devn, m.devn.c_str());
+    if (m.stats_data.unit != 0) cass_statement_bind_int32_by_name(statement, columns.unit, m.stats_data.unit);
+    if (m.stats_data.samples != 0) cass_statement_bind_int32_by_name(statement, columns.samples, m.stats_data.samples);
+    if (m.stats_data.changeable != 0) cass_statement_bind_int32_by_name(statement, columns.changeable, m.stats_data.changeable);
+    if (m.stats_data.avg_signal != 0) cass_statement_bind_int32_by_name(statement, columns.avg_signal, m.stats_data.avg_signal);
+    if (m.stats_data.created_at != 0) cass_statement_bind_int64_by_name(statement, columns.created_at, m.stats_data.created_at);
+    if (m.stats_data.updated_at != 0) cass_statement_bind_int64_by_name(statement, columns.updated_at, m.stats_data.updated_at);
+    if (m.movement_data.signal != 0) cass_statement_bind_int32_by_name(statement, columns.signal, m.movement_data.signal);
+    if (m.movement_data.speed != 0) cass_statement_bind_double_by_name(statement, columns.speed, m.movement_data.speed);
+    if (m.movement_data.direction != 0) cass_statement_bind_double_by_name(statement, columns.direction, m.movement_data.direction);
+    if (m.tech.ta != 0) cass_statement_bind_int32_by_name(statement, columns.ta, m.tech.ta);
+    if (m.tech.tac != 0) cass_statement_bind_int32_by_name(statement, columns.tac, m.tech.tac);
+    if (m.tech.pci != 0) cass_statement_bind_int32_by_name(statement, columns.pci, m.tech.pci);
+    if (m.tech.sid != 0) cass_statement_bind_int32_by_name(statement, columns.sid, m.tech.sid);
+    if (m.tech.nid != 0) cass_statement_bind_int32_by_name(statement, columns.nid, m.tech.nid);
+    if (m.tech.bid != 0) cass_statement_bind_int32_by_name(statement, columns.bid, m.tech.bid);
 
     CassFuture* future = cass_session_execute(db.get_session(), statement);
     cass_future_wait(future);
@@ -39,8 +78,8 @@ std::vector<measurement> measurement_manager::get_measurements(int32_t mcc, int3
     std::string query = "SELECT * FROM cell_measurements WHERE mcc = ? AND mnc = ?";
     
     CassStatement* statement = cass_statement_new(query.c_str(), 2);
-    cass_statement_bind_int32(statement, 0, mcc);
-    cass_statement_bind_int32(statement, 1, mnc);
+    cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
+    cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
 
     CassFuture* future = cass_session_execute(db.get_session(), statement);
     cass_future_wait(future);
@@ -53,23 +92,36 @@ std::vector<measurement> measurement_manager::get_measurements(int32_t mcc, int3
             const CassRow* row = cass_iterator_get_row(iterator);
             measurement m;
             // Extracting data from row
-            cass_value_get_int32(cass_row_get_column_by_name(row, "mcc"), &m.mcc);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "mnc"), &m.mnc);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "lac"), &m.lac);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "cellid"), &m.cellid);
-            cass_value_get_int64(cass_row_get_column_by_name(row, "measured_at"), &m.measured_at);
-            cass_value_get_double(cass_row_get_column_by_name(row, "lat"), &m.lat);
-            cass_value_get_double(cass_row_get_column_by_name(row, "lon"), &m.lon);
-            cass_value_get_string(cass_row_get_column_by_name(row, "apiKey"), &m.apiKey);
-            cass_value_get_string(cass_row_get_column_by_name(row, "act"), &m.act);
-            cass_value_get_string(cass_row_get_column_by_name(row, "devn"), &m.devn);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "signal"), &m.signal);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "ta"), &m.ta);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "tac"), &m.tac);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "pci"), &m.pci);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "sid"), &m.sid);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "nid"), &m.nid);
-            cass_value_get_int32(cass_row_get_column_by_name(row, "bid"), &m.bid);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.mcc), &m.key.mcc);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.mnc), &m.key.mnc);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.lac), &m.key.lac);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.cellid), &m.key.cellid);
+            cass_value_get_int64(cass_row_get_column_by_name(row, columns.measured_at), &m.key.measured_at);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.lat), &m.core_data.lat);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.lon), &m.core_data.lon);
+
+            const char* radio_ptr;
+            size_t radio_len;
+            cass_value_get_string(cass_row_get_column_by_name(row, columns.radio), &radio_ptr, &radio_len);
+            m.radio = std::string(radio_ptr, radio_len);
+
+            const char* api_key_ptr;
+            size_t api_key_len;
+            cass_value_get_string(cass_row_get_column_by_name(row, columns.apikey), &api_key_ptr, &api_key_len);
+            m.apikey = std::string(api_key_ptr, api_key_len);
+
+
+            const char* devn_ptr;
+            size_t devn_len;
+            cass_value_get_string(cass_row_get_column_by_name(row, columns.devn), &devn_ptr, &devn_len);
+            m.devn = std::string(devn_ptr, devn_len);
+
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.ta), &m.tech.ta);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.tac), &m.tech.tac);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.pci), &m.tech.pci);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.sid), &m.tech.sid);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.nid), &m.tech.nid);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.bid), &m.tech.bid);
             results.push_back(m);
         }
         cass_result_free(result);
@@ -84,12 +136,12 @@ std::vector<measurement> measurement_manager::get_measurements(int32_t mcc, int3
 void measurement_manager::update_signal(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts, int32_t new_signal) {
     std::string query = "UPDATE cell_measurements SET signal = ? WHERE mcc = ? AND mnc = ? AND lac = ? AND cellid = ? AND measured_at = ?";
     CassStatement* statement = cass_statement_new(query.c_str(), 6);
-    cass_statement_bind_int32(statement, 0, new_signal);
-    cass_statement_bind_int32(statement, 1, mcc);
-    cass_statement_bind_int32(statement, 2, mnc);
-    cass_statement_bind_int32(statement, 3, lac);
-    cass_statement_bind_int32(statement, 4, cellid);
-    cass_statement_bind_int64(statement, 5, ts);
+    cass_statement_bind_int32_by_name(statement, columns.signal, new_signal);
+    cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
+    cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
+    cass_statement_bind_int32_by_name(statement, columns.lac, lac);
+    cass_statement_bind_int32_by_name(statement, columns.cellid, cellid);
+    cass_statement_bind_int64_by_name(statement, columns.measured_at, ts);
     CassFuture* future = cass_session_execute(db.get_session(), statement);
     cass_future_wait(future);
     cass_future_free(future);
@@ -99,11 +151,11 @@ void measurement_manager::update_signal(int32_t mcc, int32_t mnc, int32_t lac, i
 void measurement_manager::remove(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts) {
     std::string query = "DELETE FROM cell_measurements WHERE mcc = ? AND mnc = ? AND lac = ? AND cellid = ? AND measured_at = ?";
     CassStatement* statement = cass_statement_new(query.c_str(), 5);
-    cass_statement_bind_int32(statement, 0, mcc);
-    cass_statement_bind_int32(statement, 1, mnc);
-    cass_statement_bind_int32(statement, 2, lac);
-    cass_statement_bind_int32(statement, 3, cellid);
-    cass_statement_bind_int64(statement, 4, ts);
+    cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
+    cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
+    cass_statement_bind_int32_by_name(statement, columns.lac, lac);
+    cass_statement_bind_int32_by_name(statement, columns.cellid, cellid);
+    cass_statement_bind_int64_by_name(statement, columns.measured_at, ts);
     CassFuture* future = cass_session_execute(db.get_session(), statement);
     cass_future_wait(future);
     cass_future_free(future);

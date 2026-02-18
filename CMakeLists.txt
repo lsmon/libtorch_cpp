@@ -124,12 +124,16 @@ target_link_libraries(db_test cass_con)
 
 add_executable(insert_test  ${CMAKE_SOURCE_DIR}/test/db/access/insert_test.cpp
                             ${CMAKE_SOURCE_DIR}/include/db/access/measurement.hpp
-                            ${CMAKE_SOURCE_DIR}/src/db/access/measurement.cpp)
+                            ${CMAKE_SOURCE_DIR}/src/db/access/measurement.cpp
+                            ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
+                            ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
 target_include_directories(insert_test PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
 target_link_libraries(insert_test cass_con)
 
 add_executable(insert_csv   ${CMAKE_SOURCE_DIR}/test/db/access/insert_csv.cpp
-                            ${CMAKE_SOURCE_DIR}/include/db/access/raw_measurement.hpp
-                            ${CMAKE_SOURCE_DIR}/src/db/access/raw_measurement.cpp)
+                            ${CMAKE_SOURCE_DIR}/include/db/access/measurement.hpp
+                            ${CMAKE_SOURCE_DIR}/src/db/access/measurement.cpp
+                            ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
+                            ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
 target_include_directories(insert_csv PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
 target_link_libraries(insert_csv cass_con)
