@@ -84,6 +84,15 @@ else()
     set(CASSANDRA_LIB_TYPE SHARED)
 endif()
 
+find_package(nlohmann_json 3.10 REQUIRED)
+
+if (NOT nlohmann_json_FOUND)
+    message(FATAL_ERROR "nlohmann_json library not found")
+else()
+    message(STATUS "nlohmann_json found: ${nlohmann_json_VERSION}")
+    message(STATUS "nlohmann_json include dirs: ${nlohmann_json_INCLUDE_DIRS}")
+    message(STATUS "nlohmann_json libraries: ${nlohmann_json_LIBRARIES}")
+endif()
 
 configure_file(${CMAKE_SOURCE_DIR}/include/config.h.in ${CMAKE_SOURCE_DIR}/include/config.hpp)
 
@@ -128,7 +137,7 @@ add_executable(insert_test  ${CMAKE_SOURCE_DIR}/test/db/access/insert_test.cpp
                             ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
                             ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
 target_include_directories(insert_test PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
-target_link_libraries(insert_test cass_con)
+target_link_libraries(insert_test PRIVATE cass_con nlohmann_json::nlohmann_json uv)
 
 add_executable(insert_csv   ${CMAKE_SOURCE_DIR}/test/db/access/insert_csv.cpp
                             ${CMAKE_SOURCE_DIR}/include/db/access/measurement.hpp

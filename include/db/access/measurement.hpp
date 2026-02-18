@@ -5,6 +5,9 @@
 #include <vector>
 #include <cstdint>
 #include <db/connector.hpp>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 struct column_names {
     const char *mcc = "mcc";
@@ -101,7 +104,26 @@ struct measurement {
     measurement() : radio(""), apikey(""), devn("") {}
 };
 
-class measurement_manager {
+class json_helper
+{
+public:
+    void to_json(json &j, const keys &k);
+
+    void to_json(json &j, const core &c);
+
+    void to_json(json &j, const stats &s);
+
+    void to_json(json &j, const signal_movement &sm);
+
+    void to_json(json &j, const tech_specific &t);
+
+    void to_json(json &j, const measurement &m);
+    
+    std::string to_string(const measurement &m, bool prettyPrint = false);
+};
+
+
+class measurement_manager : public json_helper {
 private:
     // Database connection and session would be members here
     connector& db;
@@ -115,6 +137,8 @@ public:
     void update_signal(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts, int32_t new_signal);
 
     void remove(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts);
+
+
 };
 
 #endif // MEASUREMENT_HPP
