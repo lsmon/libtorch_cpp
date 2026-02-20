@@ -4,7 +4,7 @@ import urllib.request
 import gzip
 import shutil
 
-mcc_list = [310, 312, 313, 314]  # List of MCCs to download, e.g., 310 for USA
+mcc_list = [310, 311, 312, 313, 314, 315, 316]  # List of MCCs to download, e.g., 310 for USA
 def download_opencellid(root_path, token):
     url = "https://opencellid.org/ocid/downloads"
     url += f"?token={token}"

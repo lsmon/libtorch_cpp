@@ -37,60 +37,84 @@ public:
                 // Use stringstream to parse the line
                 // Based on your previous sample: radio, mcc, mnc, lac, cellid, unit, lon, lat, range...
                 std::stringstream ss(line);
-                std::string temp;
+                std::string field;
                 measurement m;
 
                 try
                 {
                     // 1. Radio (String)
-                    ss >> m.radio;
+                    std::getline(ss, field, ',');
+                    m.radio = field;
 
                     // 2. MCC (Int)
-                    ss >> m.key.mcc;
+                    std::getline(ss, field, ',');
+                    m.key.mcc = std::stoi(field);
 
                     // 3. MNC (Int)
-                    ss >> m.key.mnc;
+                    std::getline(ss, field, ',');
+                    m.key.mnc = std::stoi(field);
 
                     // 4. LAC (Int)
-                    ss >> m.key.lac;
+                    std::getline(ss, field, ',');
+                    m.key.lac = std::stoi(field);
 
                     // 5. CellID (Int)
-                    ss >> m.key.cellid;
+                    std::getline(ss, field, ',');
+                    m.key.cellid = std::stoi(field);
 
                     // 6. Unit (Int)
-                    ss >> m.stats_data.unit;
+                    std::getline(ss, field, ',');
+                    m.stats_data.unit = std::stoi(field);
 
                     // 7. Lon (Double)
-                    ss >> m.core_data.lon;
+                    std::getline(ss, field, ',');
+                    m.core_data.lon = std::stod(field);
 
                     // 8. Lat (Double)
-                    ss >> m.core_data.lat;
+                    std::getline(ss, field, ',');
+                    m.core_data.lat = std::stod(field);
 
                     // 9. Range (Int)
-                    ss >> m.core_data.range;
+                    std::getline(ss, field, ',');
+                    m.core_data.range = std::stoi(field);
 
                     // 10. Samples (Int)
-                    ss >> m.stats_data.samples;
+                    std::getline(ss, field, ',');
+                    m.stats_data.samples = std::stoi(field);
 
                     // 11. Changeable (Int)
-                    ss >> m.stats_data.changeable;
+                    std::getline(ss, field, ',');
+                    m.stats_data.changeable = std::stoi(field);
 
-                    // 12. Created (Timestamp in seconds -> convert to ms)
-                    int64_t created_sec;
-                    ss >> created_sec;
-                    m.key.measured_at = created_sec * 1000;
-                    m.stats_data.created_at = created_sec * 1000;
+                    // 12. Created (Long -> ms)
+                    std::getline(ss, field, ',');
+                    int64_t created_ms = std::stoll(field) * 1000;
+                    m.key.measured_at = created_ms;
+                    m.stats_data.created_at = created_ms;
 
-                    // 13. Updated (Timestamp in seconds -> ms)
-                    int64_t updated_sec;
-                    ss >> updated_sec;
-                    m.stats_data.updated_at = updated_sec * 1000;
+                    // 13. Updated (Long -> ms)
+                    std::getline(ss, field, ',');
+                    m.stats_data.updated_at = std::stoll(field) * 1000;
 
-                    // 14. Avg Signal (Int)
-                    ss >> m.stats_data.avg_signal;
+                    // 14. Avg Signal (Int) - Final field, no delimiter needed but safe to include
+                    std::getline(ss, field, ',');
+                    if (!field.empty())
+                        m.stats_data.avg_signal = std::stoi(field);
 
                     // Execute insertion
-                    manager.insert(m);
+                    measurement record = manager.get_measurement(m.key.mcc, m.key.mnc, m.key.lac, m.key.cellid, m.key.measured_at); // Test retrieval before insertion
+                    std::string record_str = measurement_manager::to_string(record, false);
+                    std::string expected_str = measurement_manager::to_string(m, false);
+                    if (record_str != expected_str)
+                    {
+                        std::cout << "Record not found before insertion, as expected." << std::endl;
+                        std::cout << "Inserting measurement: " << expected_str << std::endl;
+                        manager.insert(m);
+                    }
+                    else
+                    {
+                        std::cout << "Record already exists before insertion: " << record_str << std::endl;
+                    }
 
                     count++;
                     if (count % 1000 == 0)

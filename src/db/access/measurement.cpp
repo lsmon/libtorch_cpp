@@ -5,6 +5,9 @@ void measurement_manager::insert(const measurement &m)
 {
     if (m.key.mcc == 0 || m.key.mnc == 0 || m.key.lac == 0 || m.key.cellid == 0 || m.key.measured_at == 0)
     {
+        json j_keys;
+        json_helper::to_json(j_keys, m);
+        std::cerr << "Error: Missing keys: " << j_keys.dump(4) << std::endl;
         throw std::invalid_argument("Missing required fields for measurement insertion");
     }
 
@@ -133,7 +136,7 @@ void measurement_manager::insert(const measurement &m)
     cass_statement_bind_int32_by_name(statement, columns.mcc, m.key.mcc);
     cass_statement_bind_int32_by_name(statement, columns.mnc, m.key.mnc);
     cass_statement_bind_int32_by_name(statement, columns.lac, m.key.lac);
-    cass_statement_bind_int32_by_name(statement, columns.cellid, m.key.cellid);
+    cass_statement_bind_int64_by_name(statement, columns.cellid, m.key.cellid);
     cass_statement_bind_int64_by_name(statement, columns.measured_at, m.key.measured_at);
 
     if (m.core_data.lat != 0)
@@ -189,6 +192,99 @@ void measurement_manager::insert(const measurement &m)
     cass_future_free(future);
 }
 
+measurement measurement_manager::get_measurement(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts)
+{
+    std::string query = "SELECT * FROM measurements WHERE mcc = ? AND mnc = ? AND lac = ? AND cellid = ? AND measured_at = ?";
+    CassStatement *statement = cass_statement_new(query.c_str(), 5);
+    cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
+    cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
+    cass_statement_bind_int32_by_name(statement, columns.lac, lac);
+    cass_statement_bind_int64_by_name(statement, columns.cellid, cellid);
+    cass_statement_bind_int64_by_name(statement, columns.measured_at, ts);
+    CassFuture *future = cass_session_execute(db.get_session(), statement);
+    cass_future_wait(future);
+
+    measurement m;
+    if (cass_future_error_code(future) == CASS_OK)
+    {
+        const CassResult *result = cass_future_get_result(future);
+        if (cass_result_row_count(result) > 0)
+        {
+            const CassRow *row = cass_result_first_row(result);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.mcc), &m.key.mcc);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.mnc), &m.key.mnc);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.lac), &m.key.lac);
+            cass_value_get_int64(cass_row_get_column_by_name(row, columns.cellid), &m.key.cellid);
+            cass_value_get_int64(cass_row_get_column_by_name(row, columns.measured_at), &m.key.measured_at);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.lat), &m.core_data.lat);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.lon), &m.core_data.lon);
+
+            // 1. Get the CassValue pointer
+            const CassValue *radio_val = cass_row_get_column_by_name(row, columns.radio);
+            // 2. Check if the column exists AND is not null
+            if (radio_val != nullptr && !cass_value_is_null(radio_val))
+            {
+                const char *radio_ptr;
+                size_t radio_len;
+                // 3. Now it is safe to extract the data
+                cass_value_get_string(radio_val, &radio_ptr, &radio_len);
+                m.radio = std::string(radio_ptr, radio_len);
+            }
+            else
+            {
+                // 4. Handle the NULL case (e.g., set to empty string)
+                m.radio = "";
+            }
+
+            // 1. Get the CassValue pointer
+            const CassValue *api_key_val = cass_row_get_column_by_name(row, columns.apikey);
+            // 2. Check if the column exists AND is not null
+            if (api_key_val != nullptr && !cass_value_is_null(api_key_val))
+            {
+                const char *api_key_ptr;
+                size_t api_key_len;
+                // 3. Now it is safe to extract the data
+                cass_value_get_string(api_key_val, &api_key_ptr, &api_key_len);
+                m.apikey = std::string(api_key_ptr, api_key_len);
+            }
+            else
+            {
+                // 4. Handle the NULL case (e.g., set to empty string)
+                m.apikey = "";
+            }
+
+            // 1. Get the CassValue pointer
+            const CassValue *devn_val = cass_row_get_column_by_name(row, columns.devn);
+            // 2. Check if the column exists AND is not null
+            if (devn_val != nullptr && !cass_value_is_null(devn_val))
+            {
+                const char *devn_ptr;
+                size_t devn_len;
+                // 3. Now it is safe to extract the data
+                cass_value_get_string(devn_val, &devn_ptr, &devn_len);
+                m.devn = std::string(devn_ptr, devn_len);
+            }
+            else
+            {
+                // 4. Handle the NULL case (e.g., set to empty string)
+                m.devn = "";
+            }
+
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.ta), &m.tech.ta);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.tac), &m.tech.tac);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.pci), &m.tech.pci);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.sid), &m.tech.sid);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.nid), &m.tech.nid);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.bid), &m.tech.bid);
+        }
+        cass_result_free(result);
+    }
+
+    cass_future_free(future);
+    cass_statement_free(statement);
+    return m;
+}
+
 std::vector<measurement> measurement_manager::get_measurements(int32_t mcc, int32_t mnc)
 {
     std::vector<measurement> results;
@@ -214,7 +310,7 @@ std::vector<measurement> measurement_manager::get_measurements(int32_t mcc, int3
             cass_value_get_int32(cass_row_get_column_by_name(row, columns.mcc), &m.key.mcc);
             cass_value_get_int32(cass_row_get_column_by_name(row, columns.mnc), &m.key.mnc);
             cass_value_get_int32(cass_row_get_column_by_name(row, columns.lac), &m.key.lac);
-            cass_value_get_int32(cass_row_get_column_by_name(row, columns.cellid), &m.key.cellid);
+            cass_value_get_int64(cass_row_get_column_by_name(row, columns.cellid), &m.key.cellid);
             cass_value_get_int64(cass_row_get_column_by_name(row, columns.measured_at), &m.key.measured_at);
             cass_value_get_double(cass_row_get_column_by_name(row, columns.lat), &m.core_data.lat);
             cass_value_get_double(cass_row_get_column_by_name(row, columns.lon), &m.core_data.lon);
@@ -295,7 +391,7 @@ void measurement_manager::update_signal(int32_t mcc, int32_t mnc, int32_t lac, i
     cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
     cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
     cass_statement_bind_int32_by_name(statement, columns.lac, lac);
-    cass_statement_bind_int32_by_name(statement, columns.cellid, cellid);
+    cass_statement_bind_int64_by_name(statement, columns.cellid, cellid);
     cass_statement_bind_int64_by_name(statement, columns.measured_at, ts);
     CassFuture *future = cass_session_execute(db.get_session(), statement);
     cass_future_wait(future);
@@ -310,13 +406,51 @@ void measurement_manager::remove(int32_t mcc, int32_t mnc, int32_t lac, int32_t 
     cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
     cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
     cass_statement_bind_int32_by_name(statement, columns.lac, lac);
-    cass_statement_bind_int32_by_name(statement, columns.cellid, cellid);
+    cass_statement_bind_int64_by_name(statement, columns.cellid, cellid);
     cass_statement_bind_int64_by_name(statement, columns.measured_at, ts);
     CassFuture *future = cass_session_execute(db.get_session(), statement);
     cass_future_wait(future);
     cass_future_free(future);
     cass_statement_free(statement);
 }
+
+core measurement_manager::get_tower_location(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid)
+{
+    std::string query = "SELECT lat, lon, rating, range FROM measurements WHERE mcc = ? AND mnc = ? AND lac = ? AND cellid = ? LIMIT 1";
+    CassStatement *statement = cass_statement_new(query.c_str(), 4);
+    cass_statement_bind_int32_by_name(statement, columns.mcc, mcc);
+    cass_statement_bind_int32_by_name(statement, columns.mnc, mnc);
+    cass_statement_bind_int32_by_name(statement, columns.lac, lac);
+    cass_statement_bind_int64_by_name(statement, columns.cellid, cellid);
+    CassFuture *future = cass_session_execute(db.get_session(), statement);
+    cass_future_wait(future);
+    core c;
+    if (cass_future_error_code(future) == CASS_OK)
+    {
+        const CassResult *result = cass_future_get_result(future);
+        if (cass_result_row_count(result) > 0)
+        {
+            const CassRow *row = cass_result_first_row(result);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.lat), &c.lat);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.lon), &c.lon);
+            cass_value_get_double(cass_row_get_column_by_name(row, columns.rating), &c.rating);
+            cass_value_get_int32(cass_row_get_column_by_name(row, columns.range), &c.range);
+            cass_result_free(result);
+            cass_future_free(future);
+            cass_statement_free(statement);
+            
+        }
+        cass_result_free(result);
+    }
+    else
+    {
+        throw std::runtime_error("Error fetching tower location: " + std::string(cass_error_desc(cass_future_error_code(future))));
+    }
+    cass_future_free(future);
+    cass_statement_free(statement);
+    return c;
+}
+
 void json_helper::to_json(json &j, const keys &k)
 {
     j = json{{"mcc", k.mcc}, {"mnc", k.mnc}, {"lac", k.lac}, {"cellid", k.cellid}, {"measured_at", k.measured_at}};
@@ -376,15 +510,15 @@ void json_helper::to_json(json &j, const measurement &m)
         {"pci", m.tech.pci},
         {"sid", m.tech.sid},
         {"nid", m.tech.nid},
-        {"bid", m.tech.bid}
-    };
+        {"bid", m.tech.bid}};
 }
 
 std::string json_helper::to_string(const measurement &m, bool prettyPrint)
 {
     json j = json::object();
-    this->to_json(j, m);
-    if (prettyPrint) {
+    json_helper::to_json(j, m);
+    if (prettyPrint)
+    {
         return j.dump(4); // 4 spaces indentation
     }
     return j.dump(); // Minified

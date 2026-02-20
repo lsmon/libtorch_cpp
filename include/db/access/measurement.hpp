@@ -42,8 +42,8 @@ struct column_names {
 const column_names columns;
 
 struct keys {
-    int32_t mcc, mnc, lac, cellid;
-    int64_t measured_at;
+    int32_t mcc, mnc, lac;
+    int64_t cellid, measured_at;
 
     keys() : mcc(0), mnc(0), lac(0), cellid(0), measured_at(0) {}
 };
@@ -107,19 +107,19 @@ struct measurement {
 class json_helper
 {
 public:
-    void to_json(json &j, const keys &k);
+    static void to_json(json &j, const keys &k);
 
-    void to_json(json &j, const core &c);
+    static void to_json(json &j, const core &c);
 
-    void to_json(json &j, const stats &s);
+    static void to_json(json &j, const stats &s);
 
-    void to_json(json &j, const signal_movement &sm);
+    static void to_json(json &j, const signal_movement &sm);
 
-    void to_json(json &j, const tech_specific &t);
+    static void to_json(json &j, const tech_specific &t);
 
-    void to_json(json &j, const measurement &m);
+    static void to_json(json &j, const measurement &m);
     
-    std::string to_string(const measurement &m, bool prettyPrint = false);
+    static std::string to_string(const measurement &m, bool prettyPrint = false);
 };
 
 
@@ -132,13 +132,15 @@ public:
 
     void insert(const measurement& m);
 
+    measurement get_measurement(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts);
+
     std::vector<measurement> get_measurements(int32_t mcc, int32_t mnc);
 
     void update_signal(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts, int32_t new_signal);
 
     void remove(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid, int64_t ts);
 
-
+    core get_tower_location(int32_t mcc, int32_t mnc, int32_t lac, int32_t cellid);  
 };
 
 #endif // MEASUREMENT_HPP
