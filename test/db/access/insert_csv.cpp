@@ -14,7 +14,7 @@ class data_importer
 public:
     static void import_csv(measurement_manager &manager)
     {
-        std::vector<std::string> mcc_list = {"310", "311", "312", "313", "314", "315", "316"};
+        std::vector<std::string> mcc_list = {"310", "311", "312", "313", "314", "315"};
         std::string root_path = OCID_DSET_PATH;
         for (const auto &mcc : mcc_list)
         {
