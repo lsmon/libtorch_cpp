@@ -17,7 +17,22 @@ set(CASSANDRA_V "2.17.1")
 install("Cassandra" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/cassandra-driver.py" ${CASSANDRA_V})
 
 set(LIBTORCH_V "2.5.0")
-dependency_install("libtorch" "${CMAKE_SOURCE_DIR}/libtorch" "libtorch-install.py" "${LIBTORCH_V}")
+
+find_package(CUDAToolkit)
+if(CUDAToolkit_FOUND)
+    message(STATUS "CUDA Toolkit found: ${CUDAToolkit_VERSION}")
+    message(STATUS "CUDA Include Dir: ${CUDAToolkit_INCLUDE_DIRS}")
+    message(STATUS "CUDA Libs: ${CUDAToolkit_LIBRARY_DIR}")
+    if (CUDAToolkit_VERSION VERSION_LESS "11.8")
+        install("libtorch" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/libtorch-install.py" "${LIBTORCH_V} 118")
+    else()
+        install("libtorch" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/libtorch-install.py" "${LIBTORCH_V} 121")
+    endif()
+else()
+    message(WARNING "CUDA Toolkit not found on system.")
+    install("libtorch" "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/scripts/dependencies/libtorch-install.py" "${LIBTORCH_V}")
+endif()
+
 
 # Silences the Kineto warning
 set(kineto_LIBRARY "")
