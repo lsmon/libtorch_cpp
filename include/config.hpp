@@ -15,3 +15,41 @@
 #define TORCH_INSTALL_PREFIX "/home/lsmon/Documents/libtorch_cpp/libtorch"
 
 #define OCID_DSET_PATH "/home/lsmon/Documents/libtorch_cpp/data/ocid"
+
+#define CUDA_ENABLED TRUE
+
+#ifdef CUDA_ENABLED
+
+
+#define CUDA_CHECK(err)                                                    \
+    do {                                                                   \
+        cudaError_t _e = (err);                                            \
+        if (_e != cudaSuccess) {                                           \
+            std::cerr << "CUDA error " << _e << " at " << __FILE__     \
+                      << ":" << __LINE__ << " -> "                    \
+                      << cudaGetErrorString(_e) << std::endl;             \
+            std::exit(EXIT_FAILURE);                                       \
+        }                                                                  \
+    } while (0)
+
+#define CUBLAS_CHECK(err)                                                  \
+    do {                                                                   \
+        cublasStatus_t _e = (err);                                         \
+        if (_e != CUBLAS_STATUS_SUCCESS) {                                 \
+            std::cerr << "cuBLAS error " << _e << " at " << __FILE__   \
+                      << ":" << __LINE__ << std::endl;                 \
+            std::exit(EXIT_FAILURE);                                       \
+        }                                                                  \
+    } while (0)
+
+#define CUSOLVER_CHECK(err)                                                \
+    do {                                                                   \
+        cusolverStatus_t _e = (err);                                       \
+        if (_e != CUSOLVER_STATUS_SUCCESS) {                               \
+            std::cerr << "cuSolver error " << _e << " at " << __FILE__ \
+                      << ":" << __LINE__ << std::endl;                 \
+            std::exit(EXIT_FAILURE);                                       \
+        }                                                                  \
+    } while (0)
+
+#endif

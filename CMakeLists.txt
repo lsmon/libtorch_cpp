@@ -117,30 +117,48 @@ set_target_properties(cassandra_lib PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/include"
 )
 
-add_executable(minimal ${CMAKE_SOURCE_DIR}/src/main.cpp)
+add_executable(minimal ${CMAKE_SOURCE_DIR}/test/main.cpp)
 target_link_directories(minimal PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(minimal "${TORCH_LIBRARIES}")
 target_include_directories(minimal PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
 
-add_executable(pca ${CMAKE_SOURCE_DIR}/src/unsupervised/pca.cpp)
+add_executable(pca ${CMAKE_SOURCE_DIR}/test/unsupervised/pca.cpp)
 target_link_directories(pca PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(pca "${TORCH_LIBRARIES}")
 target_include_directories(pca PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
 
-add_executable(pca_k-means ${CMAKE_SOURCE_DIR}/src/unsupervised/pca_k-means.cpp)
+add_executable(pca_k-means ${CMAKE_SOURCE_DIR}/test/unsupervised/pca_k-means.cpp)
 target_link_directories(pca_k-means PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(pca_k-means "${TORCH_LIBRARIES}")
 target_include_directories(pca_k-means PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
 
+# Native CUDA executables for unsupervised examples (built only when CUDA Toolkit is available)
+if(CUDAToolkit_FOUND)
+
+    message(STATUS "Adding native CUDA executables for unsupervised examples")
+
+    add_executable(pca_cuda ${CMAKE_SOURCE_DIR}/test/unsupervised/cuda/pca_cuda.cu)
+    target_include_directories(pca_cuda PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    set_target_properties(pca_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_link_libraries(pca_cuda PRIVATE CUDA::cudart CUDA::cublas CUDA::cusolver)
+
+    add_executable(pca_kmeans_cuda ${CMAKE_SOURCE_DIR}/test/unsupervised/cuda/pca_kmeans_cuda.cu)
+    target_include_directories(pca_kmeans_cuda PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    set_target_properties(pca_kmeans_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_link_libraries(pca_kmeans_cuda PRIVATE CUDA::cudart CUDA::cublas CUDA::cusolver)
+else()
+    message(STATUS "CUDA Toolkit not found; native CUDA executables will not be built.")
+endif()
+
 fetch_mnist("${CMAKE_SOURCE_DIR}/data")
-add_executable(No01_libtorch_basics ${CMAKE_SOURCE_DIR}/src/basics/libtorch.cpp)
+add_executable(No01_libtorch_basics ${CMAKE_SOURCE_DIR}/test/basics/libtorch.cpp)
 target_link_directories(No01_libtorch_basics PRIVATE "${CMAKE_PREFIX_PATH}/torch.libs" "${CMAKE_PREFIX_PATH}/torch/libs")
 target_link_libraries(No01_libtorch_basics "${TORCH_LIBRARIES}")
 target_include_directories(No01_libtorch_basics PUBLIC ${TORCH_INCLUDE} ${CMAKE_SOURCE_DIR}/include)
 
 add_library(cass_con ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
                      ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
-target_include_directories(cass_con PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
+target_include_directories(cass_con PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(cass_con ${CASSANDRA_LIB})
 
 add_executable(db_test ${CMAKE_SOURCE_DIR}/test/db/db_test.cpp)
@@ -151,7 +169,7 @@ add_executable(insert_test  ${CMAKE_SOURCE_DIR}/test/db/access/insert_test.cpp
                             ${CMAKE_SOURCE_DIR}/src/db/access/measurement.cpp
                             ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
                             ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
-target_include_directories(insert_test PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
+target_include_directories(insert_test PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(insert_test PRIVATE cass_con nlohmann_json::nlohmann_json uv)
 
 add_executable(insert_csv   ${CMAKE_SOURCE_DIR}/test/db/access/insert_csv.cpp
@@ -159,5 +177,22 @@ add_executable(insert_csv   ${CMAKE_SOURCE_DIR}/test/db/access/insert_csv.cpp
                             ${CMAKE_SOURCE_DIR}/src/db/access/measurement.cpp
                             ${CMAKE_SOURCE_DIR}/include/db/connector.hpp
                             ${CMAKE_SOURCE_DIR}/src/db/connector.cpp)
-target_include_directories(insert_csv PUBLIC ${CMAKE_SOURCE_DIR}/include ${CASSANDRA_INC})
+target_include_directories(insert_csv PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(insert_csv cass_con)
+# --- CTest integration --------------------------------------------------
+enable_testing()
+# basic smoke tests that run each executable; adjust/add arguments as needed
+add_test(NAME run_minimal COMMAND minimal)
+add_test(NAME run_pca COMMAND pca)
+add_test(NAME run_pca_kmeans COMMAND pca_k-means)
+
+# CUDA examples (they may be skipped if CUDA not found)
+if(CUDAToolkit_FOUND)
+    add_test(NAME run_pca_cuda COMMAND pca_cuda)
+    add_test(NAME run_pca_kmeans_cuda COMMAND pca_kmeans_cuda)
+endif()
+
+# other utility tests
+add_test(NAME db_test COMMAND db_test)
+add_test(NAME insert_test COMMAND insert_test)
+add_test(NAME insert_csv_test COMMAND insert_csv)
