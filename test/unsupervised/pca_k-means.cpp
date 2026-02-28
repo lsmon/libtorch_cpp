@@ -2,35 +2,8 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
-
-torch::Tensor sampleSimulator(int n_samples, int n_features)
-{
-    // Base "true" location influence (simplified: stronger signal closer to "origin")
-    auto dist_factor = torch::rand({n_samples}) * 0.8 + 0.2; // 0.2–1.0 distance factor
-
-    // Create correlated signal strengths (stronger near "home" cell, weaker far away)
-    std::vector<torch::Tensor> columns;
-    // Simulate 3 main "serving" cells with decay + noise
-    for (int i = 0; i < 8; ++i)
-    {                                                          // 8 visible sectors
-        float base = -55.0 - i * 8.0;                          // closer cells stronger
-        auto decay = torch::pow(dist_factor, 1.5 + i * 0.3);   // [500]
-        auto group = base * decay.unsqueeze(1).expand({-1, 3}) // [500, 1]
-                     + torch::randn({n_samples, 3}) * 4.0f;    // [500, 3]
-        for (int j = 0; j < 3; ++j)
-        {
-            columns.push_back(group.slice(1, j, j + 1));
-        }
-    }
-
-    // Add timing advance columns (roughly increase with distance)
-    for (int i = 0; i < 8; ++i)
-    {
-        auto ta = 0.1f + dist_factor.unsqueeze(1) * (3.0f + i * 0.5f) + torch::randn({n_samples, 1}) * 0.4f;
-        columns.push_back(ta);
-    }
-    return torch::cat(columns, 1); // final fingerprint matrix [n_samples × n_features]
-}
+#include "sample_factory.hpp"
+#include "config.hpp"
 
 torch::Tensor pca(torch::Tensor data)
 {
@@ -165,15 +138,14 @@ torch::Tensor kmeans(torch::Tensor projected, int n_samples, int K, int max_iter
 int main()
 {
     std::cout << std::fixed << std::setprecision(4);
-    torch::manual_seed(123);
 
     // ────────────────────────────────────────────────
     // Simulate realistic RF fingerprint data
     // ────────────────────────────────────────────────
     int n_samples = 500; // many location measurements
-    int n_features = 24; // e.g. RSSI from 8 sectors × 3 bands + TA from 8 cells
+    int n_features = 42; // e.g. RSSI from 8 sectors × 3 bands + TA from 8 cells
 
-    auto data = sampleSimulator(n_samples, n_features);
+    auto data = sample_factory::create_sample_data(n_samples, n_features);
 
     std::cout << "Generated RF fingerprint data shape: [" << data.size(0)
               << ", " << data.size(1) << "]\n\n";

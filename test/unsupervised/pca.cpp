@@ -1,18 +1,17 @@
 #include <torch/torch.h>
 #include <iostream>
 #include <iomanip>
+#include "sample_factory.hpp"
 
 int main() {
     std::cout << std::fixed << std::setprecision(4);
+    // ────────────────────────────────────────────────
+    // Simulate realistic RF fingerprint data
+    // ────────────────────────────────────────────────
+    int n_samples = 500; // many location measurements
+    int n_features = 42; // e.g. RSSI from 8 sectors × 3 bands + TA from 8 cells
 
-    torch::manual_seed(42);
-
-    // Synthetic correlated 2D data (y ≈ 2*x + noise)
-    int n_samples = 100;
-    auto x = torch::randn({n_samples, 1}) * 3.0;
-    auto noise = torch::randn({n_samples, 1}) * 0.5;
-    auto y = 2.0 * x + noise;
-    auto data = torch::cat({x, y}, 1);  // [100, 2]
+    auto data = sample_factory::create_sample_data(n_samples, n_features);
 
     std::cout << "Original data (first 5 rows):\n" << data.slice(0, 0, 5) << "\n\n";
 

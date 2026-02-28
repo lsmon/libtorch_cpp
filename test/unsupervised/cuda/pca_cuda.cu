@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <random>
+#include "sample_factory.hpp"
 #include "config.hpp"
 
 // --------------------------------------------------
@@ -34,17 +35,18 @@ int main()
 
     // ---------- generate some synthetic 2‑D data on the host ----------
     std::cout << "[1] Generating synthetic 2D data on host...\n";
-    const int n = 100;
-    const int d = 2;
-    std::vector<float> h_data(n * d);
-    std::mt19937 rng(42);
-    std::normal_distribution<float> dist(0.0f, 1.0f);
-    for (int i = 0; i < n; ++i) {
-        float x = dist(rng) * 3.0f;
-        float y = 2.0f * x + dist(rng) * 0.5f;
-        h_data[i * d + 0] = x;
-        h_data[i * d + 1] = y;
-    }
+    const int n = 500;
+    const int d = 32;
+    std::vector<float> h_data = sample_factory::create_sample_lists(n, d);
+
+    // std::mt19937 rng(42);
+    // std::normal_distribution<float> dist(0.0f, 1.0f);
+    // for (int i = 0; i < n; ++i) {
+    //     float x = dist(rng) * 3.0f;
+    //     float y = 2.0f * x + dist(rng) * 0.5f;
+    //     h_data[i * d + 0] = x;
+    //     h_data[i * d + 1] = y;
+    // }
     std::cout << "    Generated " << n << " samples with " << d << " features\n\n";
 
     // ------------------------------------------------------------------

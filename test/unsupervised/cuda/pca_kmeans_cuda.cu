@@ -5,6 +5,7 @@
 #include <vector>
 #include <random>
 #include <cmath>
+#include "sample_factory.hpp"
 #include "config.hpp"
 
 // simple kernels reused from pca_cuda.cu
@@ -48,19 +49,19 @@ int main()
     std::cout << "=== PCA + K-Means with CUDA ===\n" << std::endl;
     const int n = 500;
     const int d = 32;
-    const int K = 6;
 
     // 1) simulate data on host
     std::cout << "[1] Generating synthetic fingerprint data (" << n << " samples x " << d 
               << " features) on host...\n";
-    std::vector<float> h_data(n * d);
-    std::mt19937 rng(123);
-    std::normal_distribution<float> dist(0.0f, 1.0f);
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < d; ++j) {
-            h_data[i * d + j] = dist(rng);
-        }
-    }
+    // std::vector<float> h_data(n * d);
+    std::vector<float> h_data = sample_factory::create_sample_lists(n, d);
+    // std::mt19937 rng(123);
+    // std::normal_distribution<float> dist(0.0f, 1.0f);
+    // for (int i = 0; i < n; ++i) {
+    //     for (int j = 0; j < d; ++j) {
+    //         h_data[i * d + j] = dist(rng);
+    //     }
+    // }
     std::cout << "    [OK] Data generated\n\n";
 
     float* d_data = nullptr;
@@ -139,6 +140,7 @@ int main()
     std::cout << "           [OK] Data projected to 2D\n\n";
 
     // 3) run K-means on projected points entirely on device
+    const int K = 6;; // e.g. 6 location zones / grids
     std::cout << "[4] === K-MEANS STAGE ===\n";
     std::cout << "    Initializing " << K << " clusters...\n";
     float* d_centroids = nullptr;
