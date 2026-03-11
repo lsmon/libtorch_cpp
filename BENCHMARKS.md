@@ -27,6 +27,8 @@ build directory if you need to verify the results.
 | `run_pca_kmeans`        | CPU PCA + k‑means               | 0.97     | different high‑dim data (24 features) |
 | `run_pca_kmeans_cuda`   | GPU PCA + k‑means               | 0.18     | different data, 5.4× faster against CPU version |
 
+``` IMPORTANT NOTE: IN THIS TEST SINCE GPU WAS PRESENT, THE CPU TEST RESULTS ARE ACTUALLY USING GPU ACCELERATION IN THIS TESTS RESULTS ```
+
 ### Observations
 
 * The pure PCA kernel is roughly **three times faster** on the GPU for
